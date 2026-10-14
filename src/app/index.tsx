@@ -1,98 +1,139 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+import { useRouter } from 'expo-router';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 export default function HomeScreen() {
+  const router = useRouter();
+
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.smallTitle}>RESTAURANT APP</Text>
+        <Text style={styles.title}>Chef Menu Manager</Text>
+        <Text style={styles.subtitle}>
+          Manage your restaurant menu easily.
+        </Text>
+      </View>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+      <View style={styles.content}>
+        <Text style={styles.heading}>Welcome, Chef!</Text>
+        <Text style={styles.description}>
+          Create and manage your restaurant's menu items.
+        </Text>
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+        <Pressable
+          style={styles.button}
+          onPress={() => router.push('/add-menu')}
+        >
+          <Text style={styles.buttonText}>+ Add Menu Item</Text>
+        </Pressable>
 
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+        <Pressable
+          style={styles.secondaryButton}
+          onPress={() => router.push('/my-menu')}
+        >
+          <Text style={styles.secondaryText}>View Menu</Text>
+        </Pressable>
+
+        <View style={styles.infoCard}>
+          <Text style={styles.cardTitle}>MENU MANAGEMENT</Text>
+          <Text style={styles.cardText}>
+            Add dishes, choose their course, set prices,
+            and view your restaurant menu.
+          </Text>
+        </View>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
+    backgroundColor: '#F5F2EB',
   },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
+  header: {
+    backgroundColor: '#285439',
+    padding: 30,
+    paddingTop: 65,
+    paddingBottom: 50,
   },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+  smallTitle: {
+    color: '#D8E4D6',
+    fontSize: 12,
+    letterSpacing: 2,
+    marginBottom: 15,
   },
   title: {
-    textAlign: 'center',
+    color: '#FFFFFF',
+    fontSize: 32,
+    fontWeight: 'bold',
   },
-  code: {
-    textTransform: 'uppercase',
+  subtitle: {
+    color: '#E4E9DF',
+    fontSize: 14,
+    marginTop: 12,
   },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  content: {
+    padding: 24,
+  },
+  heading: {
+    fontSize: 23,
+    fontWeight: 'bold',
+    color: '#285439',
+    marginBottom: 10,
+  },
+  description: {
+    color: '#666666',
+    fontSize: 15,
+    marginBottom: 30,
+  },
+  button: {
+    backgroundColor: '#285439',
+    padding: 18,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  secondaryButton: {
+    backgroundColor: '#FFFFFF',
+    padding: 18,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#285439',
+  },
+  secondaryText: {
+    color: '#285439',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  infoCard: {
+    backgroundColor: '#FFFFFF',
+    padding: 22,
+    borderRadius: 14,
+    marginTop: 35,
+  },
+  cardTitle: {
+    color: '#285439',
+    fontSize: 13,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  cardText: {
+    color: '#666666',
+    fontSize: 14,
+    lineHeight: 23,
   },
 });
