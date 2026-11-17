@@ -1,27 +1,39 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
-    Alert,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
 } from 'react-native';
+
+type MenuItem = {
+  id: string;
+  name: string;
+  description: string;
+  course: string;
+  price: number;
+};
 
 export default function AddMenuScreen() {
   const router = useRouter();
+  const { id } = useLocalSearchParams<{ id?: string }>();
+
+  const editId = typeof id === 'string' ? id : undefined;
+  const isEditing = Boolean(editId);
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [course, setCourse] = useState('');
   const [price, setPrice] = useState('');
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(isEditing);
 
-  // Show messages on both web and mobile
   const showMessage = (title: string, message: string) => {
     if (Platform.OS === 'web') {
       window.alert(`${title}\n\n${message}`);
@@ -30,7 +42,38 @@ export default function AddMenuScreen() {
     }
   };
 
-  // Validate and save the dish
+  // Load the existing dish when editing
+  useEffect(() => {
+    if (!editId) return;
+
+    const loadItem = async () => {
+      try {
+        const saved = await AsyncStorage.getItem('menuItems');
+        const items: MenuItem[] = saved ? JSON.parse(saved) : [];
+
+        const item = items.find((dish) => dish.id === editId);
+
+        if (!item) {
+          showMessage('Error', 'Menu item could not be found.');
+          router.replace('/my-menu');
+          return;
+        }
+
+        setName(item.name);
+        setDescription(item.description);
+        setCourse(item.course);
+        setPrice(String(item.price));
+      } catch {
+        showMessage('Error', 'Could not load the menu item.');
+        router.replace('/my-menu');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadItem();
+  }, [editId]);
+
   const saveItem = async () => {
     if (
       !name.trim() ||
@@ -42,6 +85,11 @@ export default function AddMenuScreen() {
         'Missing Information',
         'Please complete all fields before saving.'
       );
+      return;
+    }
+
+    if (!['Starter', 'Main Course', 'Dessert'].includes(course)) {
+      showMessage('Invalid Course', 'Please select a valid course.');
       return;
     }
 
@@ -58,42 +106,61 @@ export default function AddMenuScreen() {
     setSaving(true);
 
     try {
-      // Get previously saved dishes
-      const savedData = await AsyncStorage.getItem('menuItems');
-      const existingItems = savedData ? JSON.parse(savedData) : [];
+      const saved = await AsyncStorage.getItem('menuItems');
+      const existingItems: MenuItem[] = saved ? JSON.parse(saved) : [];
 
       if (!Array.isArray(existingItems)) {
-        throw new Error('Invalid saved menu data');
+        throw new Error('Invalid menu data');
       }
 
-      // Create the new dish
-      const newItem = {
-        id: Date.now().toString() + Math.random().toString(),
-        name: name.trim(),
-        description: description.trim(),
-        course: course,
-        price: amount,
-      };
+      let updatedItems: MenuItem[];
 
-      // Add the new dish to the existing list
-      const updatedItems = [...existingItems, newItem];
+      if (isEditing) {
+        const exists = existingItems.some(
+          (item) => item.id === editId
+        );
 
-      // Save all dishes using AsyncStorage
+        if (!exists) {
+          throw new Error('Menu item not found');
+        }
+
+        updatedItems = existingItems.map((item) =>
+          item.id === editId
+            ? {
+                ...item,
+                name: name.trim(),
+                description: description.trim(),
+                course,
+                price: amount,
+              }
+            : item
+        );
+      } else {
+        const newItem: MenuItem = {
+          id: Date.now().toString() + Math.random().toString(),
+          name: name.trim(),
+          description: description.trim(),
+          course,
+          price: amount,
+        };
+
+        updatedItems = [...existingItems, newItem];
+      }
+
       await AsyncStorage.setItem(
         'menuItems',
         JSON.stringify(updatedItems)
       );
 
-      // Display confirmation
       showMessage(
         'Success!',
-        'Menu item successfully added!'
+        isEditing
+          ? 'Menu item successfully updated!'
+          : 'Menu item successfully added!'
       );
 
-      // Open My Menu
       router.replace('/my-menu');
-
-    } catch (error) {
+    } catch {
       showMessage(
         'Error',
         'Could not save the menu item. Please try again.'
@@ -103,18 +170,30 @@ export default function AddMenuScreen() {
     }
   };
 
+  if (loading) {
+    return (
+      <ScrollView style={styles.container}>
+        <Text style={styles.title}>Loading menu item...</Text>
+      </ScrollView>
+    );
+  }
+
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.title}>Add Menu Item</Text>
-      <Text style={styles.subtitle}>
-        Enter your dish details below.
+      <Text style={styles.title}>
+        {isEditing ? 'Edit Menu Item' : 'Add Menu Item'}
       </Text>
 
-      {/* Dish Name */}
+      <Text style={styles.subtitle}>
+        {isEditing
+          ? 'Update your dish details below.'
+          : 'Enter your dish details below.'}
+      </Text>
+
       <Text style={styles.label}>Dish Name</Text>
       <TextInput
         style={styles.input}
@@ -124,7 +203,6 @@ export default function AddMenuScreen() {
         onChangeText={setName}
       />
 
-      {/* Description */}
       <Text style={styles.label}>Description</Text>
       <TextInput
         style={[styles.input, styles.description]}
@@ -135,7 +213,6 @@ export default function AddMenuScreen() {
         multiline
       />
 
-      {/* Course Selection */}
       <Text style={styles.label}>Select Course</Text>
 
       {['Starter', 'Main Course', 'Dessert'].map((item) => (
@@ -159,7 +236,6 @@ export default function AddMenuScreen() {
         </Pressable>
       ))}
 
-      {/* Price */}
       <Text style={styles.label}>Price (R)</Text>
       <TextInput
         style={styles.input}
@@ -170,7 +246,6 @@ export default function AddMenuScreen() {
         onChangeText={setPrice}
       />
 
-      {/* Save Button */}
       <Pressable
         style={[
           styles.saveButton,
@@ -180,13 +255,16 @@ export default function AddMenuScreen() {
         disabled={saving}
       >
         <Text style={styles.whiteText}>
-          {saving ? 'Saving...' : 'Save Menu Item'}
+          {saving
+            ? 'Saving...'
+            : isEditing
+              ? 'Update Menu Item'
+              : 'Save Menu Item'}
         </Text>
       </Pressable>
 
-      {/* Back Button */}
       <Pressable onPress={() => router.back()}>
-        <Text style={styles.back}>Back</Text>
+        <Text style={styles.back}>Cancel</Text>
       </Pressable>
     </ScrollView>
   );
