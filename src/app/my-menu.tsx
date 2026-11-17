@@ -3,12 +3,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
-    ActivityIndicator,
-    FlatList,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 
 type MenuItem = {
@@ -21,47 +23,77 @@ type MenuItem = {
 
 export default function MyMenuScreen() {
   const router = useRouter();
+
   const [items, setItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const loadItems = useCallback(async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      const saved = await AsyncStorage.getItem('menuItems');
+      const data = saved ? JSON.parse(saved) : [];
+
+      if (!Array.isArray(data)) {
+        throw new Error('Invalid menu data');
+      }
+
+      setItems(data);
+    } catch {
+      setError('Could not load your menu. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
-      let active = true;
-
-      const loadItems = async () => {
-        setLoading(true);
-        setError('');
-
-        try {
-          const saved = await AsyncStorage.getItem('menuItems');
-          const data = saved ? JSON.parse(saved) : [];
-
-          if (!Array.isArray(data)) {
-            throw new Error('Invalid menu data');
-          }
-
-          if (active) {
-            setItems(data);
-          }
-        } catch (e) {
-          if (active) {
-            setError('Could not load your menu. Please try again.');
-          }
-        } finally {
-          if (active) {
-            setLoading(false);
-          }
-        }
-      };
-
       loadItems();
-
-      return () => {
-        active = false;
-      };
-    }, [])
+    }, [loadItems])
   );
+
+  // Delete a dish from the menu
+  const deleteItem = async (id: string) => {
+    try {
+      const updatedItems = items.filter(
+        (item) => item.id !== id
+      );
+
+      await AsyncStorage.setItem(
+        'menuItems',
+        JSON.stringify(updatedItems)
+      );
+
+      setItems(updatedItems);
+    } catch {
+      if (Platform.OS === 'web') {
+        window.alert('Could not delete the menu item.');
+      } else {
+        Alert.alert('Error', 'Could not delete the menu item.');
+      }
+    }
+  };
+
+  const confirmDelete = (item: MenuItem) => {
+    const message = `Are you sure you want to delete ${item.name}?`;
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(message)) {
+        deleteItem(item.id);
+      }
+    } else {
+      Alert.alert('Delete Menu Item', message, [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => deleteItem(item.id),
+        },
+      ]);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -81,6 +113,9 @@ export default function MyMenuScreen() {
       ) : error ? (
         <View style={styles.center}>
           <Text style={styles.emptyText}>{error}</Text>
+          <Pressable style={styles.button} onPress={loadItems}>
+            <Text style={styles.buttonText}>Try Again</Text>
+          </Pressable>
         </View>
       ) : (
         <FlatList
@@ -90,16 +125,39 @@ export default function MyMenuScreen() {
           renderItem={({ item }) => (
             <View style={styles.card}>
               <View style={styles.cardHeader}>
-                <Text style={styles.dishName}>{item.name}</Text>
+                <Text style={styles.dishName}>
+                  {item.name}
+                </Text>
                 <Text style={styles.price}>
                   R{Number(item.price).toFixed(2)}
                 </Text>
               </View>
 
               <Text style={styles.course}>{item.course}</Text>
+
               <Text style={styles.description}>
                 {item.description}
               </Text>
+
+              <View style={styles.actions}>
+                <Pressable
+                  style={styles.editButton}
+                  onPress={() =>
+                    router.push(
+                      `/add-menu?id=${encodeURIComponent(item.id)}`
+                    )
+                  }
+                >
+                  <Text style={styles.buttonText}>Edit</Text>
+                </Pressable>
+
+                <Pressable
+                  style={styles.deleteButton}
+                  onPress={() => confirmDelete(item)}
+                >
+                  <Text style={styles.buttonText}>Delete</Text>
+                </Pressable>
+              </View>
             </View>
           )}
           ListEmptyComponent={
@@ -190,6 +248,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
   },
+  actions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 18,
+  },
+  editButton: {
+    flex: 1,
+    backgroundColor: '#285439',
+    padding: 13,
+    borderRadius: 9,
+    alignItems: 'center',
+  },
+  deleteButton: {
+    flex: 1,
+    backgroundColor: '#A33D36',
+    padding: 13,
+    borderRadius: 9,
+    alignItems: 'center',
+  },
   emptyContainer: {
     alignItems: 'center',
     marginTop: 75,
@@ -233,4 +310,3 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
 });
-
